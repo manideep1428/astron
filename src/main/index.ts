@@ -158,3 +158,58 @@ app.whenReady().then(() => {
     attachVoiceSession()
     socketHub.onRpc('agent:create', (p) => handleAgentCreateWs(p))
     socketHub.onRpc('agent:list', () => orchestrator.listRuns())
+    socketHub.onRpc('agent:pause', (p) => {
+      orchestrator.pauseRun(String((p as { runId?: string })?.runId ?? p ?? ''))
+      return { ok: true }
+    })
+    socketHub.onRpc('agent:resume', (p) => {
+      orchestrator.resumeRun(String((p as { runId?: string })?.runId ?? p ?? ''))
+      return { ok: true }
+    })
+    socketHub.onRpc('agent:cancel', (p) => {
+      orchestrator.cancelRun(String((p as { runId?: string })?.runId ?? p ?? ''))
+      return { ok: true }
+    })
+    socketHub.onRpc('voice:state', (p) => {
+      const state = String((p as { state?: string })?.state ?? 'idle')
+      for (const win of BrowserWindow.getAllWindows()) {
+        try {
+          if (!win.isDestroyed()) win.webContents.send('voice:ws-state', state)
+        } catch {
+          // ignore
+        }
+      }
+      return { ok: true, port }
+    })
+    console.log(`[hub] rpc ready on :${port}`)
+  }).catch((err) => console.warn('[hub] failed to start', err))
+
+  // Register IPC Handlers
+  ipcMain.handle('get-config', () => {
+    return configManager.get()
+  })
+
+  ipcMain.handle('save-config', (_, newConfig) => {
+    return configManager.save(newConfig)
+  })
+
+  ipcMain.handle('show-dashboard', () => {
+    if (!mainWindow) {
+      mainWindow = createMainWindow()
+    } else {
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  })
+
+  ipcMain.handle('agent:create', async (_, req) => {
+    const task = String(req?.task ?? '').trim()
+    if (!task) throw new Error('Task is empty.')
+    const count =
+      typeof req?.count === 'number' ? Math.max(1, Math.min(5, req.count)) : undefined
+    const run = await orchestrator.createRun({
+      task,
+      mode: req?.mode,
+      count,
+      execution: req?.execution
+    })
