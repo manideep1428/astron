@@ -43,5 +43,30 @@ export function startAssistant(): void {
   if (held || busy) return
   createAssistantWindow()
   held = true
+  session += 1
+  win?.showInactive()
+  notify()
+  clearTimeout(limit)
+  limit = setTimeout(stopAssistant, 60_000)
+}
+
+export function stopAssistant(): void {
+  if (!held) return
+  held = false
+  clearTimeout(limit)
+  notify()
+}
+
+export function registerAssistantIpc(): void {
+  ipcMain.handle('assistant:state', (event) => {
+    if (event.sender !== win?.webContents) throw new Error('Invalid assistant window')
+    return { held, session }
+  })
+  ipcMain.handle('assistant:dismiss', (event) => {
+    if (event.sender !== win?.webContents) return
+    held = false
+    clearTimeout(limit)
+    submitted = session
+    notify()
 
 }
