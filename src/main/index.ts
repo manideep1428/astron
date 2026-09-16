@@ -93,3 +93,68 @@ function toggleAssistantFromUi(): void {
 }
 
 function createTray(): void {
+  try {
+    const trayIcon = nativeImage.createFromPath(icon)
+    tray = new Tray(trayIcon.resize({ width: 16, height: 16 }))
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'Astron',
+        enabled: false
+      },
+      { type: 'separator' },
+      {
+        label: 'Hold to Talk (same as Ctrl + Win + A)',
+        click: () => startAssistant()
+      },
+      {
+        label: 'Start / Finish Voice Task',
+        click: () => toggleAssistantFromUi()
+      },
+      {
+        label: 'Open Dashboard',
+        click: () => {
+          if (!mainWindow) {
+            mainWindow = createMainWindow()
+          } else {
+            mainWindow.show()
+            mainWindow.focus()
+          }
+        }
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit',
+        click: () => {
+          app.quit()
+        }
+      }
+    ])
+    tray.setToolTip('Astron - AI agent assistant')
+    tray.setContextMenu(contextMenu)
+    tray.on('double-click', () => {
+      if (mainWindow) {
+        mainWindow.show()
+        mainWindow.focus()
+      } else {
+        mainWindow = createMainWindow()
+      }
+    })
+  } catch (err) {
+    console.warn('Tray creation skipped/failed:', err)
+  }
+}
+
+app.whenReady().then(() => {
+  if (!singleInstance) return
+  electronApp.setAppUserModelId('com.astron.app')
+
+  app.on('browser-window-created', (_, window) => {
+    optimizer.watchWindowShortcuts(window)
+  })
+
+  // Local WebSocket hub: connects immediately on renderer boot, streams
+  // agent events + carries voice chunks for GPT-Live-1 style full-duplex.
+  void socketHub.start().then((port) => {
+    attachVoiceSession()
+    socketHub.onRpc('agent:create', (p) => handleAgentCreateWs(p))
+    socketHub.onRpc('agent:list', () => orchestrator.listRuns())
