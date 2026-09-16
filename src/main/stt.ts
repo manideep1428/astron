@@ -108,3 +108,127 @@ export async function transcribeAudio(
         durationMs: Date.now() - startTime
       }
     }
+
+    const raw = await response.text()
+    console.log('[stt] OpenAI response:', raw.slice(0, 500))
+
+    const text = extractTranscript(safeJson(raw)).trim()
+    const durationMs =
+      recordingDurationMs && recordingDurationMs > 0 ? recordingDurationMs : Date.now() - startTime
+
+    return { success: true, text, durationMs }
+  } catch (err) {
+    const isAbort = err instanceof Error && err.name === 'AbortError'
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('[stt] Failed to transcribe with OpenAI:', message)
+    return {
+      success: false,
+      text: '',
+      error: isAbort
+        ? 'OpenAI request timed out. Please try again.'
+        : message || 'Network error while calling the OpenAI transcription API',
+      durationMs: Date.now() - startTime
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+function safeJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return raw
+  }
+}
+
+/**
+ * OpenAI answers with `{ text }`. Keep tolerating `transcription`/`transcript`/
+ * `result`/`output` variants so a proxy or field rename cannot break paste.
+ */
+function extractTranscript(data: unknown): string {
+  if (typeof data === 'string') {
+    return data
+  }
+
+  if (data && typeof data === 'object') {
+    const record = data as Record<string, unknown>
+
+    for (const key of ['text', 'transcription', 'transcript', 'result', 'output']) {
+      const value = record[key]
+      if (typeof value === 'string' && value.trim()) {
+        return value
+      }
+    }
+
+    const nested = record.data
+    if (nested && typeof nested === 'object') {
+      const nestedRecord = nested as Record<string, unknown>
+      for (const key of ['text', 'transcription', 'transcript', 'result', 'output']) {
+        const value = nestedRecord[key]
+        if (typeof value === 'string' && value.trim()) {
+          return value
+        }
+      }
+    }
+
+    // Last resort: first string value that is not metadata (never JSON.stringify,
+    // that used to paste raw JSON into the user's document).
+    for (const [key, value] of Object.entries(record)) {
+      if (NON_TRANSCRIPT_KEYS.has(key.toLowerCase())) continue
+      if (typeof value === 'string' && value.trim()) {
+        return value
+      }
+    }
+  }
+
+  return ''
+}
+/**
+ * Builds a multipart/form-data body by hand. Node's global FormData works too,
+ * but a Buffer body keeps the byte layout deterministic (and unit-testable)
+ * across Electron/Node versions.
+ */
+export function buildMultipartBody(
+  fields: Record<string, string>,
+  audio: Buffer,
+  filename = 'speech.wav'
+): { body: Buffer; contentType: string } {
+  const boundary = `----AstronBoundary${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`
+  const parts: Buffer[] = []
+  for (const [name, value] of Object.entries(fields)) {
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`
+      )
+    )
+  }
+  parts.push(
+    Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: audio/wav\r\n\r\n`
+    )
+  )
+  parts.push(audio)
+  parts.push(Buffer.from(`\r\n--${boundary}--\r\n`))
+  return {
+    body: Buffer.concat(parts),
+    contentType: `multipart/form-data; boundary=${boundary}`
+  }
+}
+
+/** OpenAI errors look like `{ "error": { "message": "..." } }`. */
+export function extractApiError(raw: string): string {
+  const parsed = safeJson(raw)
+  if (parsed && typeof parsed === 'object') {
+    const err = (parsed as Record<string, unknown>).error
+    if (typeof err === 'string' && err.trim()) return err.trim()
+    if (err && typeof err === 'object') {
+      const message = (err as Record<string, unknown>).message
+      if (typeof message === 'string' && message.trim()) return message.trim()
+    }
+    const message = (parsed as Record<string, unknown>).message
+    if (typeof message === 'string' && message.trim()) return message.trim()
+  }
+  return raw.trim().slice(0, 200)
+}
+
