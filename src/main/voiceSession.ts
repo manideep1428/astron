@@ -53,3 +53,53 @@ async function astraReply(prompt: string): Promise<string | null> {
     try {
       const res = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          instructions: 'Voice of Astron AI computer. 1-2 short spoken sentences.',
+          input: prompt.slice(0, 2000),
+          max_output_tokens: 220
+        })
+      })
+      if (!res.ok) return null
+      const json = (await res.json()) as { output_text?: string }
+      return String(json.output_text ?? '').trim() || null
+    } finally {
+      clearTimeout(timer)
+    }
+  } catch {
+    return null
+  }
+}
+
+function looksLikeCommand(text: string): boolean {
+  return /^(research|compare|search|open|build|test|fix|run|summar|write|create|check|find)\b/i.test(text.trim())
+}
+
+async function transcribeWindow(full: Buffer, pcmLen: number): Promise<void> {
+  if (busy) return
+  busy = true
+  try {
+    const seconds = pcmLen / 2 / 16000
+    socketHub.broadcastVoiceState('transcribing')
+    const result = await transcribeAudio(full, Math.round(seconds * 1000))
+    if (!result.success || !result.text.trim()) {
+      socketHub.broadcastVoiceState('idle')
+      return
+    }
+    const text = result.text.trim()
+    // Live voice uses the same GPT path as the voice assistant: transcribe,
+    // answer with the model, and hand command-like speech to an agent run.
+    const reply = await astraReply(text)
+    if (reply) {
+      socketHub.broadcastVoiceState('speaking', reply)
+      if (looksLikeCommand(text)) {
+        try {
+          const { orchestrator } = await import('./agent/orchestrator')
+          await orchestrator.createRun({ task: text, count: 2 })
+        } catch {
+          // reply already sent
+        }
+      }
+      return
