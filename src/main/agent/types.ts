@@ -33,3 +33,33 @@ export interface AgentRun {
   id: string
   prompt: string
   requestedMode: AgentModeSetting
+  execution: ExecutionMode
+  maxAgents: number
+  status: RunStatus
+  agents: Agent[]
+  sharedMemoryId: string
+  createdAt: number
+  updatedAt: number
+}
+
+export interface ComputerUseSettings {
+  mode: AgentModeSetting
+  maxAgents: number
+  execution: ExecutionMode
+  askBeforeSensitive: boolean
+  showActivity: boolean
+  allowAgentComms: boolean
+}
+
+export const DEFAULT_COMPUTER_USE: ComputerUseSettings = {
+  mode: 'auto',
+  maxAgents: 3,
+  execution: 'parallel',
+  askBeforeSensitive: true,
+  showActivity: true,
+  allowAgentComms: true
+}
+
+export type AgentEventType =
+  | 'run-started'
+  | 'run-updated'
