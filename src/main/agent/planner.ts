@@ -68,3 +68,33 @@ async function callAstra(system: string, user: string, maxTokens = 800): Promise
       }
       const json = (await res.json()) as ResponsesTextOut & Record<string, unknown>
       const text = extractText(json).trim()
+      return text || null
+    } finally {
+      clearTimeout(timer)
+    }
+  } catch (err) {
+    console.warn('[planner] Astra call failed, using heuristic fallback:', err)
+    return null
+  }
+}
+
+/** Split one user task into N parallel shards. Falls back to heuristics offline. */
+export async function planShards(task: string, count: number): Promise<string[]> {
+  const n = Math.max(1, Math.min(5, count))
+  if (n === 1) return [task]
+  const ai = await callAstra(
+    'You split computer-use research tasks into parallel shards. Reply with exactly N lines, one shard task per line, no numbering, no extra text.',
+    `Split into ${n} non-overlapping shards:\n${task}`
+  )
+  if (ai) {
+    const lines = ai
+      .split('\n')
+      .map((l) => l.replace(/^\s*\d+[.)\-:]\s*/, '').trim())
+      .filter(Boolean)
+    if (lines.length >= n) return lines.slice(0, n)
+    if (lines.length >= 2) {
+      while (lines.length < n) lines.push(`${task} (part ${lines.length + 1}/${n})`)
+      return lines.slice(0, n)
+    }
+  }
+  // Heuristic fallback: shard by angle.
