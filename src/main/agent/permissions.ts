@@ -20,3 +20,26 @@ const SENSITIVE_PATTERNS: RegExp[] = [
 ]
 
 const BLOCKED_URL_SUBSTRINGS = ['bank', 'wallet', 'crypto-exchange']
+
+export function isSensitiveAction(text: string): boolean {
+  return SENSITIVE_PATTERNS.some((re) => re.test(text))
+}
+
+export function isBlockedUrl(url: string): boolean {
+  const lower = url.toLowerCase()
+  return BLOCKED_URL_SUBSTRINGS.some((s) => lower.includes(s))
+}
+
+/** Restrict detached workers to http(s) + allow-listed hosts when provided. */
+export function isUrlAllowed(url: string, allowList: string[] = []): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+  if (allowList.length === 0) return !isBlockedUrl(url)
+  return allowList.some((h) => parsed.hostname === h || parsed.hostname.endsWith('.' + h))
+}
+
