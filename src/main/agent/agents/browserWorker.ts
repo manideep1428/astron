@@ -78,3 +78,28 @@ export async function runBrowserTask(
   onStep('Reading results', 35)
 
   const results = await page
+    .evaluate(`(() => {
+      const anchors = Array.from(document.querySelectorAll('a.result__a, a[data-testid="result-title-a"], h2 a'));
+      return anchors.slice(0, 5).map(a => ({ title: (a.textContent||'').trim().slice(0,140), href: a.href })).filter(r => r.href && r.href.startsWith('http'));
+    })()`)
+    .catch(() => [] as Array<{ title: string; href: string }>)
+
+  const visited: string[] = []
+  const chunks: string[] = []
+  const targets = (results as Array<{ title: string; href: string }>).slice(0, 3)
+  let i = 0
+  for (const r of targets) {
+    i += 1
+    if (!isUrlAllowed(r.href)) continue
+    try {
+      onStep(`Reading ${i}/${targets.length}: ${r.title.slice(0, 40)}`, 40 + i * 15)
+      await page.goto(r.href, { waitUntil: 'domcontentloaded', timeout: 25_000 })
+      await page.waitForTimeout(800)
+      const text = await page
+        .evaluate(`(() => {
+          const el = document.querySelector('main, article, [role="main"]') || document.body;
+          return (el.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 2500);
+        })()`)
+        .catch(() => '')
+      visited.push(`${r.title} — ${r.href}`)
+      if (text) chunks.push(`SOURCE: ${r.title}\nURL: ${r.href}\n${text}`)
