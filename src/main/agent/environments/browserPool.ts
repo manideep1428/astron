@@ -43,6 +43,46 @@ class BrowserPool {
     try {
       return await this.launching
     } finally {
+      this.launching = null
+    }
+  }
+
+  /** Launch-once, reuse forever. Callers must call `release()` not close. */
+  async acquire(taskLabel: string): Promise<PooledEnv> {
+    void taskLabel
+    this.sweepIdle()
+    for (const env of this.envs.values()) {
+      if (!env.busy) {
+        env.busy = true
+        env.lastUsed = Date.now()
+        return env
+      }
+    }
+    if (this.envs.size >= MAX_ENVS) {
+      throw new Error(`Browser pool exhausted (${MAX_ENVS} environments busy). Try again shortly.`)
+    }
+    const browser = await this.ensureBrowser()
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 AstronAgent/1.0',
+      locale: 'en-US'
+    })
+    const page = await context.newPage()
+    this.counter += 1
+    const env: PooledEnv = {
+      id: `computer_${this.counter}`,
+      context,
+      page,
+      lastUsed: Date.now(),
+      busy: true
+    }
+    this.envs.set(env.id, env)
+    return env
+  }
+
+  release(envId: string): void {
+    const env = this.envs.get(envId)
 
   }
 }
