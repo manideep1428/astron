@@ -23,3 +23,28 @@ export function createMemory(runId: string, brief: string): SharedMemory {
   const mem: SharedMemory = {
     id: memId(),
     runId,
+    brief,
+    findings: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  }
+  store.set(mem.id, mem)
+  return mem
+}
+
+export function getMemory(id: string): SharedMemory | undefined {
+  return store.get(id)
+}
+
+export function appendFinding(
+  memoryId: string,
+  agentId: string,
+  role: string,
+  text: string
+): SharedMemory | undefined {
+  const mem = store.get(memoryId)
+  if (!mem) return undefined
+  // Cap each finding so one verbose worker cannot blow up the planner context.
+  const clipped = text.length > 4000 ? text.slice(0, 4000) + '\n…[truncated]' : text
+  mem.findings.push({ agentId, role, text: clipped, at: Date.now() })
+  mem.updatedAt = Date.now()
