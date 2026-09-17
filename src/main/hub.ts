@@ -48,6 +48,56 @@ class SocketHub {
     for (const c of this.clients) {
       try {
         if (c.readyState === WebSocket.OPEN) c.send(raw)
+      } catch {
+        // drop dead sockets lazily on close
+      }
+    }
+  }
+
+  broadcastAgentEvent(event: AgentEvent): void {
+    this.broadcast({ kind: 'agent-event', event })
+  }
+
+  async start(): Promise<number> {
+    if (this.wss) return this.port
+    let lastErr: unknown = null
+    for (const p of PREFERRED_PORTS) {
+      try {
+        await this.listenOnce(p)
+        this.port = p
+        console.log(`[hub] websocket ready ws://127.0.0.1:${p}`)
+        return p
+      } catch (err) {
+        lastErr = err
+      }
+    }
+    throw lastErr instanceof Error ? lastErr : new Error('ws hub failed to bind')
+  }
+
+  private listenOnce(port: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const wss = new WebSocketServer({ port, host: '127.0.0.1' })
+      const onError = (err: Error): void => {
+        try {
+          wss.close()
+        } catch {
+          // ignore
+        }
+        reject(err)
+      }
+      wss.once('error', onError)
+      wss.once('listening', () => {
+        wss.removeListener('error', onError)
+        wss.on('error', (e) => console.warn('[hub] socket error', e))
+        wss.on('connection', (ws, req) => this.handleConnection(ws, req.url ?? ''))
+        this.wss = wss
+        resolve()
+      })
+    })
+  }
+
+  private handleConnection(ws: WebSocket, url: string): void {
+    const qs = url.split('?')[1] ?? ''
 
   }
 }
