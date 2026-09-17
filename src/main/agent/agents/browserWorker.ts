@@ -53,3 +53,28 @@ export async function runBrowserTask(
     onStep(`Opening ${url}`, 15)
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 })
     onStep('Reading page', 60)
+    const title = await page.title().catch(() => '')
+    const visible = await page
+      .evaluate(`(() => {
+        const el = document.querySelector('main, article, [role="main"]') || document.body;
+        return (el.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 1200);
+      })()`)
+      .catch(() => '')
+    const finalUrl = page.url()
+    onStep('Capturing evidence', 90)
+    const shot = await page.screenshot({ type: 'png' }).then((b) => b.toString('base64'))
+    return {
+      text: `# Opened browser\n\n- URL: ${finalUrl}\n- Title: ${title || '(no title)'}\n\n${visible}`,
+      finalUrl,
+      screenshot: shot
+    }
+  }
+
+  onStep('Opening search', 10)
+  const query = encodeURIComponent(shard.slice(0, 200))
+  const startUrl = `https://duckduckgo.com/?q=${query}`
+  if (!isUrlAllowed(startUrl)) throw new Error('Search URL blocked')
+  await page.goto(startUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+  onStep('Reading results', 35)
+
+  const results = await page
