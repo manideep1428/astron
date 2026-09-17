@@ -98,6 +98,56 @@ class SocketHub {
 
   private handleConnection(ws: WebSocket, url: string): void {
     const qs = url.split('?')[1] ?? ''
+    const token = new URLSearchParams(qs).get('token') ?? ''
+    if (!token || token !== this.token) {
+      try {
+        ws.close(4401, 'bad token')
+      } catch {
+        // ignore
+      }
+      return
+    }
+    this.clients.add(ws)
+    try {
+      ws.send(JSON.stringify({ kind: 'hello', client: 'astron', port: this.port }))
+    } catch {
+      // ignore
+    }
+    ws.on('message', (data) => void this.handleMessage(ws, String(data)))
+    ws.on('close', () => {
+      this.clients.delete(ws)
+    })
+    ws.on('error', () => {
+      this.clients.delete(ws)
+    })
+  }
+
+  private async handleMessage(ws: WebSocket, raw: string): Promise<void> {
+    let msg: HubMsg & { id?: string; method?: string; params?: unknown }
+    try {
+      msg = JSON.parse(raw) as typeof msg
+    } catch {
+      return
+    }
+    if (msg.kind === 'voice-chunk') {
+      const seq = typeof msg.seq === 'number' ? msg.seq : 0
+      const audio = typeof msg.audio === 'string' ? msg.audio : ''
+      const rate = typeof msg.sampleRate === 'number' ? msg.sampleRate : 16000
+      if (!audio) return
+      for (const fn of this.voiceHandlers) {
+        try {
+          fn(seq, audio, rate)
+        } catch {
+          // never let a voice consumer break the socket
+        }
+      }
+      return
+    }
+    if (msg.kind !== 'rpc-request' || !msg.id || !msg.method) return
+    const fn = this.handlers.get(msg.method)
+    if (!fn) {
+      ws.send(JSON.stringify({ kind: 'rpc-response', id: msg.id, ok: false, error: `unknown ${msg.method}` }))
+      return
 
   }
 }
