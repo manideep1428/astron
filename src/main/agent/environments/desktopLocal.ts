@@ -10,3 +10,9 @@ export interface LocalActionRequest {
   steps: string[]
 }
 
+export function describeLocalPlan(req: LocalActionRequest): string {
+  const lines = req.steps.map((s, i) => `${i + 1}. ${s}`)
+  return `LOCAL PC PLAN (needs approval):\n${req.summary}\n${lines.join('\n')}`
+}
+
+/** v1: never auto-executes. Returns a message the verifier can show. */
