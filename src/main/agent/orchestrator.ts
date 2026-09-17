@@ -158,6 +158,86 @@ class Orchestrator {
       }
       void this.watchParallelCompletion(runId)
     }
+    return this.clone(run)
+  }
+
+  private async runSequential(runId: string): Promise<void> {
+    const run = this.runs.get(runId)
+    if (!run) return
+    for (const agent of run.agents) {
+      if (this.cancelFlags.get(runId)) break
+      await this.waitIfPaused(runId)
+      if (this.cancelFlags.get(runId)) break
+      await this.runAgent(runId, agent.id)
+    }
+    await this.finishRun(runId)
+  }
+
+  private async watchParallelCompletion(runId: string): Promise<void> {
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 500))
+      const run = this.runs.get(runId)
+      if (!run) return
+      if (run.status !== 'running' && run.status !== 'paused') return
+      const done = run.agents.every((a) => a.status === 'completed' || a.status === 'failed')
+      if (done) {
+        await this.finishRun(runId)
+        return
+      }
+    }
+  }
+
+  private async waitIfPaused(runId: string): Promise<void> {
+    while (this.pausedRuns.has(runId) && !this.cancelFlags.get(runId)) {
+      await new Promise((r) => setTimeout(r, 250))
+    }
+  }
+
+  private async runAgent(runId: string, agentId: string): Promise<void> {
+    const run = this.runs.get(runId)
+    if (!run) return
+    const agent = run.agents.find((a) => a.id === agentId)
+    if (!agent || agent.status === 'completed' || agent.status === 'failed') return
+    if (this.cancelFlags.get(runId)) {
+      this.touchAgent(run, agentId, { status: 'failed', error: 'Cancelled' })
+      return
+    }
+    await this.waitIfPaused(runId)
+    this.touchAgent(run, agentId, { status: 'working', progress: 2, currentAction: 'Starting' })
+    this.broadcast({ runId, agentId, type: 'agent-started', status: 'working', text: agent.task, at: Date.now() })
+    const step = (msg: string, progress: number): void => {
+      this.touchAgent(run, agentId, { currentAction: msg, progress })
+      this.broadcast({ runId, agentId, type: 'agent-progress', status: 'working', progress, currentAction: msg, at: Date.now() })
+    }
+    try {
+      if (agent.mode === 'normal') {
+        const decision = needsApproval(agent.task, {
+          mode: 'normal',
+          askBeforeSensitive: this.settings.askBeforeSensitive
+        })
+        if (decision.needsApproval) {
+          this.touchAgent(run, agentId, { status: 'waiting-approval', currentAction: 'Waiting for approval' })
+          this.broadcast({ runId, agentId, type: 'agent-waiting-approval', status: 'waiting-approval', currentAction: 'Waiting for approval', text: decision.reason, at: Date.now() })
+          const stub = await runLocalStub(agent.task)
+          appendFinding(run.sharedMemoryId, agent.id, agent.role, stub)
+          this.touchAgent(run, agentId, { status: 'completed', progress: 100, currentAction: 'Held for approval' })
+          this.broadcast({ runId, agentId, type: 'agent-finished', status: 'completed', progress: 100, text: stub, at: Date.now() })
+          return
+        }
+      }
+      step('Acquiring computer', 5)
+      const env = await browserPool.acquire(agent.task)
+      this.touchAgent(run, agentId, { environmentId: env.id })
+      try {
+        const result = await runBrowserTask(env.id, agent.task, step)
+        appendFinding(run.sharedMemoryId, agent.id, agent.role, result.text)
+        this.touchAgent(run, agentId, { progress: 96, currentAction: 'Done - evidence captured' })
+        this.broadcast({ runId, agentId, type: 'agent-screenshot', status: 'working', progress: 96, currentAction: 'Evidence captured', screenshot: result.screenshot.slice(0, 400_000), at: Date.now() })
+        this.touchAgent(run, agentId, { status: 'completed', progress: 100, currentAction: 'Completed' })
+        this.broadcast({ runId, agentId, type: 'agent-finished', status: 'completed', progress: 100, text: result.text.slice(0, 2000), at: Date.now() })
+      } finally {
+        browserPool.release(env.id)
+      }
 
   }
 }
