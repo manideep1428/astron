@@ -33,3 +33,38 @@ function extractText(json: ResponsesTextOut & Record<string, unknown>): string {
     for (const item of out) {
       const content = (item as { content?: Array<{ text?: string }> }).content
       if (Array.isArray(content)) {
+        for (const c of content) if (typeof c.text === 'string') parts.push(c.text)
+      }
+    }
+    if (parts.length > 0) return parts.join('\n')
+  }
+  return ''
+}
+
+async function callAstra(system: string, user: string, maxTokens = 800): Promise<string | null> {
+  const key = apiKey()
+  if (!key) return null
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 45_000)
+    try {
+      const res = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: plannerModel(),
+          instructions: system,
+          input: user,
+          max_output_tokens: maxTokens
+        })
+      })
+      if (!res.ok) {
+        console.warn('[planner] Astra HTTP', res.status, (await res.text()).slice(0, 300))
+        return null
+      }
+      const json = (await res.json()) as ResponsesTextOut & Record<string, unknown>
+      const text = extractText(json).trim()
