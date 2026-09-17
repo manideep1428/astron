@@ -24,3 +24,32 @@ export function resolveOpenTarget(task: string): string | null {
 }
 
 /** Navigation-only tasks ("open browser", "open example.com") skip the search step. */
+export function isOpenOnlyTask(task: string): boolean {
+  const lower = task.trim().toLowerCase()
+  return (
+    /^(open|launch|start|go to|visit|navigate)\b/.test(lower) &&
+    !/\b(search|research|compare|find|report|summari[sz]e|summary|analy[sz]e)\b/.test(lower)
+  )
+}
+
+/**
+ * Shared deterministic worker: search → open top results → extract text.
+ * Keeps model calls out of the per-click loop for speed; Astra only
+ * planned the shard and later merges the text.
+ */
+export async function runBrowserTask(
+  envId: string,
+  shard: string,
+  onStep: (msg: string, progress: number) => void
+): Promise<BrowserTaskResult> {
+  const page = browserPool.getPage(envId)
+  if (!page) throw new Error(`No pooled page for ${envId}`)
+
+  // Simple navigation tasks ("open browser") must not become a web search.
+  const openTarget = resolveOpenTarget(shard)
+  if (openTarget || isOpenOnlyTask(shard)) {
+    const url = openTarget ?? DEFAULT_OPEN_URL
+    if (!isUrlAllowed(url)) throw new Error(`Blocked URL: ${url}`)
+    onStep(`Opening ${url}`, 15)
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+    onStep('Reading page', 60)
