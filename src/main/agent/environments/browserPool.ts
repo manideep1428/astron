@@ -83,6 +83,36 @@ class BrowserPool {
 
   release(envId: string): void {
     const env = this.envs.get(envId)
+    if (!env) return
+    env.busy = false
+    env.lastUsed = Date.now()
+  }
+
+  async goto(env: PooledEnv, url: string): Promise<void> {
+    if (isBlockedUrl(url)) throw new Error(`Blocked URL: ${url}`)
+    await env.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+  }
+
+  async screenshot(env: PooledEnv): Promise<string> {
+    const buf: Buffer = await env.page.screenshot({ type: 'png' })
+    return buf.toString('base64')
+  }
+
+  getPage(envId: string): Page | null {
+    return this.envs.get(envId)?.page ?? null
+  }
+
+  count(): { total: number; busy: number } {
+    let busy = 0
+    for (const e of this.envs.values()) if (e.busy) busy += 1
+    return { total: this.envs.size, busy }
+  }
+
+  private sweepIdle(): void {
+    const now = Date.now()
+    for (const [id, env] of this.envs) {
+      if (!env.busy && now - env.lastUsed > MAX_IDLE_MS) {
+        void env.context.close().catch(() => undefined)
 
   }
 }
