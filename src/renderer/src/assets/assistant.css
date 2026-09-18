@@ -1,6 +1,12 @@
-.assistant-card { display: flex; align-items: center; gap: 12px; margin: 8px; padding: 16px 12px; min-height: 108px; border-radius: 22px; border: 1px solid #ffffff24; background: #0b0d12f7; color: #e2e8f0; box-shadow: 0 3px 8px #0004; }
-.assistant-robot { display: grid; place-items: center; flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%; background: #ffffff0c; color: #94a3b8; }
-.assistant-copy { flex: 1; min-width: 0; }
-.assistant-copy strong { font-size: 12px; font-weight: 700; }
-.assistant-copy p { font-size: 11px; line-height: 1.4; color: #cbd5e1; max-height: 60px; overflow-y: auto; overflow-wrap: anywhere; }
-.assistant-card button { align-self: flex-start; padding: 0 4px; background: none; border: 0; color: #94a3b8; font-size: 20px; cursor: pointer; }
+.assistant-card { display: flex; align-items: center; gap: 12px; margin: 8px; padding: 16px 12px; min-height: 108px; border-radius: 22px; border: 1px solid #ffffff24; background: #0b0d12f7; color: #e2e8f0; box-shadow: 0 3px 8px #0004; }
+.assistant-robot { display: grid; place-items: center; flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%; background: #ffffff0c; color: #94a3b8; }
+.assistant-copy { flex: 1; min-width: 0; }
+.assistant-copy strong { font-size: 12px; font-weight: 700; }
+.assistant-copy p { font-size: 11px; line-height: 1.4; color: #cbd5e1; max-height: 60px; overflow-y: auto; overflow-wrap: anywhere; }
+.assistant-card button { align-self: flex-start; padding: 0 4px; background: none; border: 0; color: #94a3b8; font-size: 20px; cursor: pointer; }
+.assistant-listening .assistant-robot { color: #fbbf24; animation: assistant-listen 1s ease-in-out infinite; }
+.assistant-opening .assistant-robot, .assistant-thinking .assistant-robot { color: #fbbf24; }
+.assistant-done .assistant-robot { color: #34d399; }
+.assistant-error .assistant-robot { color: #f87171; }
+@keyframes assistant-listen { 50% { transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .assistant-listening .assistant-robot { animation: none; } }
