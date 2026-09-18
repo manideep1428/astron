@@ -53,5 +53,35 @@ interface AgentState {
   lastEvent: AgentEventItem | null
   screenshots: Record<string, string>
   summaries: Record<string, string>
+  setRuns: (runs: AgentRunItem[]) => void
+  setActiveRun: (id: string | null) => void
+  applyEvent: (ev: AgentEventItem) => void
+  refresh: () => Promise<void>
+}
+
+function mergeRun(runs: AgentRunItem[], ev: AgentEventItem): AgentRunItem[] {
+  return runs.map((run) => {
+    if (run.id !== ev.runId) return run
+    if (ev.type === 'run-started' || ev.type === 'run-updated' || ev.type === 'run-finished') {
+      return { ...run, status: (ev.status as AgentRunItem['status']) ?? run.status, updatedAt: ev.at }
+    }
+    if (!ev.agentId) return run
+    return {
+      ...run,
+      updatedAt: ev.at,
+      agents: run.agents.map((a) =>
+        a.id === ev.agentId
+          ? {
+              ...a,
+              status: (ev.status as AgentStatus) ?? a.status,
+              progress: ev.progress ?? a.progress,
+              currentAction: ev.currentAction ?? a.currentAction,
+              error: ev.error ?? a.error
+            }
+          : a
+      )
+    }
+  })
+}
 
 }));
