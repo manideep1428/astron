@@ -1,0 +1,56 @@
+/* Hub animations — transform/opacity only (GPU, 60fps in tiny overlay) */
+@keyframes hub-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+@keyframes hub-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes hub-orbit {
+  to { transform: rotate(360deg); }
+}
+@keyframes hub-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+@keyframes hub-ripple {
+  0% { transform: scale(0.6); opacity: 0.8; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+@keyframes hub-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes hub-cursor {
+  0%, 45% { opacity: 1; }
+  50%, 95% { opacity: 0; }
+}
+@keyframes hub-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2.5px); }
+  75% { transform: translateX(2.5px); }
+}
+@keyframes hub-skeleton {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.75; }
+}
+@keyframes hub-pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.65; }
+}
+
+.hub-breathe { animation: hub-breathe 2.4s ease-in-out infinite; }
+.hub-pop { animation: hub-pop 0.25s ease-out; }
+.hub-shake { animation: hub-shake 0.3s ease-in-out 2; }
+.hub-pulse-dot { animation: hub-pulse-dot 1.6s ease-in-out infinite; }
+.hub-spin-slow { animation: hub-spin 7s linear infinite; }
+.hub-orbit { animation: hub-orbit 6s linear infinite; }
+.hub-cursor { animation: hub-cursor 1s step-end infinite; }
+.hub-skeleton { animation: hub-skeleton 1.4s ease-in-out infinite; }
+
+.hub-shimmer {
+  background: linear-gradient(100deg, rgba(99,102,241,0.9) 30%, rgba(56,189,248,1) 50%, rgba(99,102,241,0.9) 70%);
+  background-size: 200% 100%;
+  animation: hub-shimmer 1.6s linear infinite;
+}
