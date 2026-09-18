@@ -1,0 +1,37 @@
+
+.agent-dots { position: absolute; top: 8px; right: 8px; width: max-content; max-width: calc(100vw - 16px); color: #e2e8f0; font-size: 12px; }
+.agent-orbs { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: 364px; }
+.agent-orb { display: flex; flex: 0 0 26px; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: 1px solid #ffffff24; border-radius: 50%; background: #090909; color: white; cursor: pointer; box-shadow: 0 2px 8px #0006; }
+.agent-orb:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; }
+.agent-status-dot { display: block; flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; }
+.agent-status-dot-working { animation: agent-dot-bounce 0.85s ease-in-out infinite; }
+@keyframes agent-dot-bounce {
+  0%, 100% { transform: translateY(3px); }
+  50% { transform: translateY(-5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-status-dot-working { animation: none; }
+}
+.agent-popover { width: 364px; max-width: calc(100vw - 16px); margin-top: 8px; padding: 14px; background: #101827f7; border: 1px solid #ffffff24; border-radius: 18px; box-shadow: 0 4px 12px #0004; }
+.agent-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.agent-header strong { font-weight: 700; }
+.agent-header small { display: block; color: #94a3b8; }
+.agent-popover button { background: #ffffff10; border: 1px solid #ffffff24; border-radius: 8px; padding: 6px 10px; color: #e2e8f0; cursor: pointer; }
+.agent-popover button:hover { background: #ffffff20; }
+.agent-scroll { max-height: calc(100vh - 145px); overflow-y: auto; overflow-wrap: anywhere; padding-right: 3px; }
+.agent-empty { padding: 24px 4px; color: #94a3b8; }
+.agent-run { margin-top: 12px; }
+.agent-prompt { font-weight: 600; }
+.agent-mini-card { margin-top: 10px; padding: 12px; border: 1px solid #ffffff15; background: #ffffff05; border-radius: 12px; }
+.agent-mini-card > p { margin-top: 6px; color: #cbd5e1; }
+.agent-mini-card progress { display: block; width: 100%; height: 5px; margin-top: 10px; border: none; border-radius: 9px; overflow: hidden; }
+.agent-mini-card progress::-webkit-progress-bar { background: #ffffff12; }
+.agent-mini-card progress::-webkit-progress-value { background: #818cf8; }
+.agent-output { margin-top: 10px; padding: 10px; background: #818cf815; border-radius: 8px; user-select: text; }
+.agent-output > small { color: #a5b4fc; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }
+.agent-output p { margin: 6px 0; }
+.agent-output h1, .agent-output h2, .agent-output h3 { font-size: 13px; font-weight: 700; }
+.agent-output ul, .agent-output ol { padding-left: 18px; list-style: revert; }
+.agent-output pre { white-space: pre-wrap; }
+.agent-output table { display: block; overflow-x: auto; }
+.agent-error { color: #f87171 !important; }
